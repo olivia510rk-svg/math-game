@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>食物分數大冒險</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
+        
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            font-family: 'Nunito', 'Comic Sans MS', 'Microsoft JhengHei', sans-serif;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            position: fixed; /* 防止橡皮筋效果回彈 */
+            overflow: hidden;
+        }
+
+        body {
+            background: linear-gradient(135deg, #fff9c4 0%, #fff176 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* 移除 fixed 以避免 iOS 上的某些觸控問題 */
+            -webkit-text-size-adjust: 100%;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh; /* 使用 vh 確保高度正確 */
+            height: -webkit-fill-available;
+            max-width: 900px;
+            max-height: 650px;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(180, 140, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            border: 8px solid #ffb300;
+            display: flex;
+            flex-direction: column;
+            /* 讓容器本身處理觸控 */
+            touch-action: manipulation;
+        }
+
+        /* 響應式調整 */
+        @media (max-width: 900px), (max-height: 650px) {
+            #game-container {
+                width: 100vw;
+                height: 100%;
+                max-width: none;
+                max-height: none;
+                border-radius: 0;
+                border-width: 4px;
+            }
+        }
+
+        @media (orientation: portrait) {
+            h1 { font-size: 24px; margin-top: 10px; }
+            #game-content {
+                margin-top: 50px;
+                padding-bottom: 20px;
+            }
+            .equation-layout {
+                transform: scale(0.8);
+                margin: 0;
+                padding: 10px;
+                gap: 5px;
+                flex-wrap: nowrap !important; /* 強制不換行 */
+                width: 95vw;
+            }
+            .num-box {
+                width: 50px;
+                height: 50px;
+                font-size: 24px;
+            }
+            #food-container {
+                min-height: 160px;
+            }
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #fffdf2;
+        }
+
+        .active-screen {
+            display: flex;
+        }
+
+        h1 {
+            font-size: 48px;
+            color: #f57f17;
+            text-shadow: 2px 2px 0px #ffe082;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 32px;
+            color: #ef6c00;
+            margin-bottom: 10px;
+        }
+
+        p {
+            font-size: 20px;
+            color: #4e342e; 
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.5;
+            font-weight: bold;
+        }
+
+        .btn {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 22px;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #f57c00;
+            transition: all 0.1s;
+            margin: 8px;
+            font-weight: 900;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            z-index: 100; /* 確保在最上層 */
+            position: relative;
+            pointer-events: auto; /* 強制接收事件 */
+        }
+
+        .btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #f57c00;
+        }
+
+        .btn-green { background: #4caf50; box-shadow: 0 6px 0 #388e3c; }
+        .btn-green:active { box-shadow: 0 0 0 #388e3c; }
+        
+        .btn-blue { background: #29b6f6; box-shadow: 0 6px 0 #0288d1; }
+        /* 阻止系統長按選單與放大 */
+        * {
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        input {
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+        }
+
+        /* Game UI */
+        #top-bar {
+            width: 100%;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ffee58;
+            border-bottom: 4px solid #fdd835;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+        }
+
+        .status-badge {
+            background: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #4e342e;
+            box-shadow: 0 4px 0 #ffe082;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon { font-size: 24px; }
+
+        #stars-container {
+            display: flex;
+            gap: 5px;
+        }
+        .star-icon { color: #fbc02d; font-size: 24px; text-shadow: 0 0 2px #f57f17; }
+
+        #game-content {
+            margin-top: 60px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-grow: 1;
+            justify-content: center;
+        }
+
+        #food-container {
+            width: 100%;
+            height: auto;
+            min-height: 180px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 10px;
+        }
+
+        #food-canvas {
+            max-width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+
+        #q-title {
+            font-size: 20px;
+            color: #4e342e;
+            margin: 5px 0 10px 0;
+            font-weight: bold;
+            background: white;
+            padding: 5px 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 0 #ffe082;
+            text-align: center;
+        }
+
+        /* Equation Layout */
+        .equation-layout {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            background: white;
+            padding: 15px 30px;
+            border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            margin-bottom: 10px;
+            border: 3px solid #fff9c4;
+        }
+
+        .frac-group, .mid-group, .op-group, .eq-group {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .frac-group { gap: 8px; align-items: center; }
+        .mid-group { gap: 20px; }
+        .op-group, .eq-group { gap: 35px; align-items: center; font-size: 32px; font-weight: bold; color: #3e2723; }
+
+        .num-box {
+            width: 60px;
+            height: 60px;
+            font-size: 32px;
+            text-align: center;
+            border: 4px solid #ffca28;
+            border-radius: 12px;
+            font-weight: 900;
+            color: #d84315;
+            background: #fff;
+            outline: none;
+            transition: all 0.2s;
+            cursor: text;
+        }
+
+        .num-box:focus { border-color: #ff9800; box-shadow: 0 0 10px rgba(255, 152, 0, 0.4); }
+
+        /* 隱藏輸入框的上下箭頭 */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .frac-line {
+            width: 100%;
+            height: 6px;
+            background: #3e2723;
+            border-radius: 3px;
+        }
+
+        .controls {
+            margin-top: 10px;
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Feedback Overlay */
+        #feedback-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.85);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s;
+        }
+
+        #feedback-icon { font-size: 100px; }
+        #feedback-text { font-size: 40px; font-weight: bold; margin-top: 20px; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .correct-color { color: #4caf50; }
+        .wrong-color { color: #f44336; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* ====== 過關閃爍動畫 ====== */
+        @keyframes pulseFlash {
+            0% { transform: scale(1); opacity: 1; text-shadow: 0 0 10px #ffeb3b, 0 0 20px #ffeb3b; }
+            50% { transform: scale(1.15); opacity: 0.9; text-shadow: 0 0 20px #ff9800, 0 0 30px #ff9800; color: #ff3d00; }
+            100% { transform: scale(1); opacity: 1; text-shadow: 0 0 10px #ffeb3b, 0 0 20px #ffeb3b; }
+        }
+        .flash-anim {
+            animation: pulseFlash 0.8s infinite alternate;
+        }
+
+        #audio-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #ffe082;
+            z-index: 50;
+        }
+        #audio-toggle:active { transform: translateY(4px); box-shadow: 0 0 0 #ffe082; }
+
+    </style>
+</head>
+<body>
+
+<audio id="bgmAudio" loop src="your_ai_music.mp3"></audio>
+<audio id="cheerAudio" src="kids_cheer.mp3"></audio>
+
+<div id="game-container">
+    <button id="audio-toggle">🔊</button>
+
+    <div id="screen-start" class="screen active-screen">
+        <h1>🍕食物分數大冒險🍰</h1>
+        <p>歡迎來到美食的魔法世界！<br>看圖填寫分數，並完成擴分與約分的挑戰吧！</p>
+        <button class="btn btn-green" id="btn-start">開始遊戲</button>
+    </div>
+
+    <div id="screen-mode" class="screen">
+        <h2>選擇難度模式</h2>
+        <button class="btn btn-blue" id="btn-mode-basic">基礎模式 (Basic)</button>
+        <p>簡單的分數，適合熟悉規則</p>
+        <br>
+        <button class="btn" id="btn-mode-challenge">挑戰模式 (Challenge)</button>
+        <p>分母最大到 20，挑戰你的觀察與計算！</p>
+    </div>
+
+    <div id="screen-play" class="screen">
+        <div id="top-bar">
+            <div class="status-badge"><span class="icon">⏱️</span> <span id="timer-text">45</span>秒</div>
+            <div class="status-badge"><span class="icon">❌</span> <span id="fails-text">0</span>/5</div>
+            <div class="status-badge">
+                <span class="icon">⭐</span> <span id="score-text">0</span>分
+                <div id="stars-container"></div>
+            </div>
+        </div>
+
+        <div id="game-content">
+            <div id="food-container">
+                <canvas id="food-canvas" width="700" height="230"></canvas>
+            </div>
+            
+            <div id="q-title">Q：右邊的圖片是幾分之幾？</div>
+
+            <div class="equation-layout">
+                <div class="frac-group">
+                    <input type="number" class="num-box" id="l-num" min="1" inputmode="numeric" pattern="[0-9]*">
+                    <div class="frac-line"></div>
+                    <input type="number" class="num-box" id="l-den" min="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
+                <div class="op-group">
+                    <div id="op-num">×</div>
+                    <div id="op-den">×</div>
+                </div>
+                <div class="mid-group">
+                    <input type="number" class="num-box" id="m-num" min="1" inputmode="numeric" pattern="[0-9]*">
+                    <div style="height: 2px;"></div> <input type="number" class="num-box" id="m-den" min="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
+                <div class="eq-group">
+                    <div>=</div>
+                    <div>=</div>
+                </div>
+                <div class="frac-group">
+                    <input type="number" class="num-box" id="r-num" min="1" inputmode="numeric" pattern="[0-9]*">
+                    <div class="frac-line"></div>
+                    <input type="number" class="num-box" id="r-den" min="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-green" id="btn-submit">送出答案 (Submit)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="feedback-overlay">
+        <div id="feedback-icon">✅</div>
+        <div id="feedback-text" class="correct-color">答對了！+10分</div>
+    </div>
+
+    <div id="screen-gameover" class="screen">
+        <h1>遊戲結束</h1>
+        <p>連續答錯太多次了，美食被怪獸吃掉了！</p>
+        <h2 id="go-score">得分：0</h2>
+        <button class="btn btn-blue" id="btn-restart-go">重新開始</button>
+    </div>
+
+    <div id="screen-result" class="screen">
+        <h1 class="flash-anim">🎉過關！🎉</h1>
+        <p>你完成了所有的美食分數挑戰！</p>
+        <h2 id="final-score" class="flash-anim" style="font-size: 48px;">最終得分：0</h2>
+        <div id="final-stars" style="font-size: 50px; margin-bottom: 20px; text-shadow: 0 0 10px #ffeb3b;"></div>
+        <button class="btn btn-green" id="btn-restart-res">再玩一次</button>
+    </div>
+</div>
+
+<script>
+    /* ================= 音效優化與補丁 (iPad 專用) ================= */
+    let audioCtx;
+    let isMuted = false;
+    let duckTimeout;
+    
+    const bgmAudio = document.getElementById('bgmAudio');
+    const cheerAudio = document.getElementById('cheerAudio');
+
+    // 強化後的音訊解鎖補丁
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // 關鍵：在 iOS Safari 必須主動 Resume
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().then(() => {
+                // 播放一個極短的靜音振盪器，確保 iPad 的硬體音訊通道真正開啟
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                gain.gain.value = 0; // 靜音
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(0);
+                osc.stop(0.1);
+            });
+        }
+        
+        // 同時嘗試「預載」BGM 標籤權限
+        if (bgmAudio && !isMuted && bgmAudio.paused) {
+            bgmAudio.play().then(() => {
+                // 如果還沒正式開始，可以先暫停，但權限已經拿到了
+                if (!document.getElementById('screen-play').classList.contains('active-screen')) {
+                    bgmAudio.pause();
+                }
+            }).catch(() => {});
+        }
+    }
+
+    // iPad 鍵盤彈出處理：防止畫面位移太大
+    window.addEventListener('focusin', (e) => {
+        if (e.target.tagName === 'INPUT') {
+            setTimeout(() => {
+                e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    });
+
+    // 自動跳格功能與鍵盤最佳化
+    const inputIds = ['l-num', 'l-den', 'm-num', 'm-den', 'r-num', 'r-den'];
+    inputIds.forEach((id, index) => {
+        const el = document.getElementById(id);
+        el.addEventListener('input', (e) => {
+            if (e.target.value.length >= 2 && index < inputIds.length - 1) {
+                document.getElementById(inputIds[index + 1]).focus();
+            }
+        });
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (index < inputIds.length - 1) {
+                    document.getElementById(inputIds[index + 1]).focus();
+                } else {
+                    submitAnswer();
+                    el.blur(); 
+                }
+            }
+        });
+    });
+
+    // 監聽 iPad 的任何觸碰動作來解鎖音訊
+    document.addEventListener('touchstart', initAudio, { once: false });
+    document.addEventListener('click', initAudio, { once: false });
+
+    /* ================= 按鈕事件綁定 ================= */
+    function addBtnListener(id, callback) {
+        const el = document.getElementById(id);
+        if(!el) return;
+        
+        let handled = false;
+        const handler = (e) => {
+            if(handled) return;
+            handled = true;
+            setTimeout(() => { handled = false; }, 400); 
+            
+            initAudio(); // 每次點擊按鈕都確保音訊引擎啟動
+            callback(e);
+        };
+
+        el.addEventListener('click', handler);
+    }
+
+    addBtnListener('btn-start', () => showModeSelect());
+    addBtnListener('btn-mode-basic', () => startGame('basic'));
+    addBtnListener('btn-mode-challenge', () => startGame('challenge'));
+    addBtnListener('btn-submit', () => submitAnswer());
+    addBtnListener('btn-restart-go', () => showStartScreen());
+    addBtnListener('btn-restart-res', () => showStartScreen());
+    
+    addBtnListener('audio-toggle', () => {
+        isMuted = !isMuted;
+        document.getElementById('audio-toggle').innerText = isMuted ? '🔇' : '🔊';
+        
+        if (isMuted) {
+            bgmAudio.pause();
+            cheerAudio.pause();
+        } else {
+            bgmAudio.volume = 0.5;
+            if (document.getElementById('screen-play').classList.contains('active-screen') || 
+                document.getElementById('screen-result').classList.contains('active-screen')) {
+                bgmAudio.play().catch(e => console.log("期待使用者互動"));
+            }
+        }
+    });
+    
+    function duckBGM(durationMS) {
+        if (isMuted || !bgmAudio) return;
+        try {
+            bgmAudio.volume = 0.1;
+            clearTimeout(duckTimeout);
+            duckTimeout = setTimeout(() => {
+                if (!isMuted && bgmAudio) bgmAudio.volume = 0.5;
+            }, durationMS);
+        } catch(e) {}
+    }
+
+    function playTone(freq, type, duration, vol=1.0, delay=0) { 
+        if (isMuted || !audioCtx) return;
+        // 執行前再次確認狀態
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        
+        try {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = type;
+            let startTime = audioCtx.currentTime + delay;
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(vol, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        } catch(e) {}
+    }
+
+    function playCorrect() {
+        duckBGM(1200); 
+        playTone(523.25, 'sine', 0.15, 1.2, 0);       
+        playTone(659.25, 'sine', 0.2, 1.2, 0.1);      
+        playTone(783.99, 'sine', 0.35, 1.2, 0.2);     
+    }
+
+    function playWrong() {
+        duckBGM(1200); 
+        playTone(300, 'sawtooth', 0.3, 1.0, 0); 
+        playTone(250, 'sawtooth', 0.4, 1.0, 0.15);
+    }
+
+    function playVictoryCheer() {
+        if (isMuted || !cheerAudio) return;
+        duckBGM(3500);
+        try {
+            cheerAudio.volume = 1.0;
+            let playPromise = cheerAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(_ => playFallbackApplause());
+            }
+        } catch(e) {
+            playFallbackApplause();
+        }
+    }
+
+    function playFallbackApplause() {
+        if (!audioCtx) return;
+        try {
+            let bufferSize = audioCtx.sampleRate * 3;
+            let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            let data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            let noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            let filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 1000; 
+            let gain = audioCtx.createGain();
+            let startTime = audioCtx.currentTime;
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(1.0, startTime + 0.5); 
+            gain.gain.linearRampToValueAtTime(1.0, startTime + 1.5); 
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 2.8); 
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start(startTime);
+        } catch(e) {}
+    }
+
+    /* ================= Game Logic ================= */
+    let mode = 'basic';
+    let questions =[];
+    let currentQIndex = 0;
+    let score = 0;
+    let consecutiveFails = 0;
+    let timeLeft = 45;
+    let timerInterval;
+
+    const foodsList =['Pizza', 'Strawberry Cake', 'Chocolate Cookie', 'Apple Pie', 'Lemon Pie', 'Waffle', 'Seafood Pie'];
+
+    function shuffleArray(array) {
+        let arr = array.slice();
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+        document.getElementById(id).classList.add('active-screen');
+    }
+
+    function showStartScreen() {
+        showScreen('screen-start');
+    }
+
+    function showModeSelect() {
+        showScreen('screen-mode');
+    }
+
+    function startGame(selectedMode) {
+        if (!isMuted) {
+            bgmAudio.volume = 0.5;
+            bgmAudio.play().catch(e => console.log("BGM 啟動需點擊"));
+        }
+        mode = selectedMode;
+        score = 0;
+        consecutiveFails = 0;
+        currentQIndex = 0;
+        document.getElementById('stars-container').innerHTML = '';
+        generateQuestions();
+        updateTopBar();
+        showScreen('screen-play');
+        loadQuestion();
+    }
+
+    function generateQuestions() {
+        questions =[];
+        let selectedFoods = shuffleArray(foodsList).slice(0, 6);
+        let qCount = 0;
+        let getBase = (mode) => {
+            let bases = mode === 'basic' 
+                ?[{n:1,d:2}, {n:1,d:3}, {n:1,d:4}, {n:2,d:3}, {n:3,d:4}]
+                :[{n:1,d:5}, {n:2,d:5}, {n:3,d:5}, {n:4,d:5}, {n:1,d:6}, {n:5,d:6}, {n:1,d:7}, {n:2,d:7}, {n:3,d:7}, {n:1,d:8}, {n:3,d:8}, {n:5,d:8}, {n:1,d:9}, {n:2,d:9}, {n:1,d:10}, {n:3,d:10}];
+            return bases[Math.floor(Math.random() * bases.length)];
+        };
+        for(let i=0; i<2; i++) {
+            let b, f, maxF;
+            do { b = getBase(mode); maxF = Math.floor(20 / b.d); } while (maxF < 2);
+            let maxFactorAllowed = mode === 'basic' ? Math.min(4, maxF) : maxF;
+            f = Math.floor(Math.random() * (maxFactorAllowed - 1)) + 2; 
+            questions.push({ type: 'expand', left: {n:b.n, d:b.d}, right: {n:b.n*f, d:b.d*f}, factor: f, op: '×', food: selectedFoods[qCount++] });
+        }
+        for(let i=0; i<2; i++) {
+            let b, f, maxF;
+            do { b = getBase(mode); maxF = Math.floor(20 / b.d); } while (maxF < 2);
+            let maxFactorAllowed = mode === 'basic' ? Math.min(4, maxF) : maxF;
+            f = Math.floor(Math.random() * (maxFactorAllowed - 1)) + 2; 
+            questions.push({ type: 'reduce', left: {n:b.n*f, d:b.d*f}, right: {n:b.n, d:b.d}, factor: f, op: '÷', food: selectedFoods[qCount++] });
+        }
+        for(let i=0; i<2; i++) {
+            let b, f, maxF;
+            do { b = getBase(mode); maxF = Math.floor(20 / b.d); } while (maxF < 2);
+            let maxFactorAllowed = mode === 'basic' ? Math.min(4, maxF) : maxF;
+            f = Math.floor(Math.random() * (maxFactorAllowed - 1)) + 2; 
+            questions.push({ type: 'simplify', left: {n:b.n*f, d:b.d*f}, right: {n:b.n, d:b.d}, factor: f, op: '÷', food: selectedFoods[qCount++] });
+        }
+        questions = shuffleArray(questions);
+    }
+
+    function loadQuestion() {
+        if(currentQIndex >= questions.length) { showFinalScore(); return; }
+        let q = questions[currentQIndex];
+        document.getElementById('op-num').innerText = q.op;
+        document.getElementById('op-den').innerText = q.op;
+        document.getElementById('l-num').value = '';
+        document.getElementById('l-den').value = '';
+        document.getElementById('m-num').value = '';
+        document.getElementById('m-den').value = '';
+        document.getElementById('r-num').value = '';
+        document.getElementById('r-den').value = '';
+        renderCanvas(q);
+        resetTimer();
+        document.getElementById('l-num').focus();
+    }
+
+    window.addEventListener('resize', () => {
+        if (document.getElementById('screen-play').classList.contains('active-screen')) {
+            renderCanvas(questions[currentQIndex]);
+        }
+    });
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        timeLeft = 45;
+        document.getElementById('timer-text').innerText = timeLeft;
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer-text').innerText = timeLeft;
+            if (timeLeft <= 0) { handleTimeout(); }
+        }, 1000);
+    }
+
+    function handleTimeout() {
+        clearInterval(timerInterval);
+        playWrong();
+        score = Math.max(0, score - 5);
+        consecutiveFails++;
+        updateTopBar();
+        showFeedbackUI(false, "時間到！ -5分");
+        checkGameOverOrNext(false);
+    }
+
+    function submitAnswer() {
+        let lNum = parseInt(document.getElementById('l-num').value);
+        let lDen = parseInt(document.getElementById('l-den').value);
+        let mNum = parseInt(document.getElementById('m-num').value);
+        let mDen = parseInt(document.getElementById('m-den').value);
+        let rNum = parseInt(document.getElementById('r-num').value);
+        let rDen = parseInt(document.getElementById('r-den').value);
+
+        if(isNaN(lNum) || isNaN(lDen) || isNaN(mNum) || isNaN(mDen) || isNaN(rNum) || isNaN(rDen)) {
+            const btn = document.querySelector('.controls .btn');
+            btn.style.animation = 'none';
+            setTimeout(() => btn.style.animation = 'shake 0.3s', 10);
+            return; 
+        }
+
+        clearInterval(timerInterval);
+        let q = questions[currentQIndex];
+        let isCorrect = (lNum === q.left.n && lDen === q.left.d && 
+                         mNum === q.factor && mDen === q.factor && 
+                         rNum === q.right.n && rDen === q.right.d);
+
+        if(isCorrect) {
+            playCorrect();
+            score += 10;
+            consecutiveFails = 0;
+            addStar();
+            updateTopBar();
+            showFeedbackUI(true, "答對了！ +10分");
+            checkGameOverOrNext(true);
+        } else {
+            playWrong();
+            score = Math.max(0, score - 5);
+            consecutiveFails++;
+            updateTopBar();
+            showFeedbackUI(false, "算錯囉！ -5分");
+            checkGameOverOrNext(false);
+        }
+    }
+
+    function checkGameOverOrNext(wasCorrect) {
+        if(consecutiveFails >= 5) {
+            setTimeout(() => {
+                document.getElementById('go-score').innerText = `得分：${score}`;
+                showScreen('screen-gameover');
+            }, 1500);
+        } else {
+            setTimeout(() => {
+                if(wasCorrect) { currentQIndex++; loadQuestion(); } 
+                else {
+                    document.getElementById('l-num').value = '';
+                    document.getElementById('l-den').value = '';
+                    document.getElementById('m-num').value = '';
+                    document.getElementById('m-den').value = '';
+                    document.getElementById('r-num').value = '';
+                    document.getElementById('r-den').value = '';
+                    resetTimer();
+                    document.getElementById('l-num').focus();
+                }
+            }, 1500);
+        }
+    }
+
+    function showFinalScore() {
+        clearInterval(timerInterval);
+        document.getElementById('final-score').innerText = `最終得分：${score}`;
+        document.getElementById('final-stars').innerText = '⭐'.repeat(questions.length);
+        playVictoryCheer();
+        showScreen('screen-result');
+    }
+
+    function updateTopBar() {
+        document.getElementById('score-text').innerText = score;
+        document.getElementById('fails-text').innerText = consecutiveFails;
+    }
+
+    function addStar() {
+        let star = document.createElement('span');
+        star.className = 'star-icon';
+        star.innerText = '⭐';
+        document.getElementById('stars-container').appendChild(star);
+    }
+
+    function showFeedbackUI(isCorrect, msg) {
+        const overlay = document.getElementById('feedback-overlay');
+        const icon = document.getElementById('feedback-icon');
+        const text = document.getElementById('feedback-text');
+        overlay.style.display = 'flex';
+        if(isCorrect) { icon.innerText = '✅'; text.innerText = msg; text.className = 'correct-color'; } 
+        else { icon.innerText = '❌'; text.innerText = msg; text.className = 'wrong-color'; }
+        setTimeout(() => { overlay.style.display = 'none'; }, 1200);
+    }
+
+    /* ================= Canvas Graphics ================= */
+    function renderCanvas(q) {
+        const canvas = document.getElementById('food-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let centerY = 115;
+        let radius = 85;
+        drawFractionFood(ctx, 175, centerY, radius, q.left.n, q.left.d, q.food);
+        drawArrow(ctx, 300, centerY, 400, centerY, q.type);
+        drawFractionFood(ctx, 525, centerY, radius, q.right.n, q.right.d, q.food);
+    }
+
+    function drawArrow(ctx, x1, y, x2, y, type) {
+        ctx.fillStyle = '#29b6f6'; 
+        ctx.beginPath();
+        ctx.moveTo(x1, y-12);
+        ctx.lineTo(x2-20, y-12);
+        ctx.lineTo(x2-20, y-25);
+        ctx.lineTo(x2, y);
+        ctx.lineTo(x2-20, y+25);
+        ctx.lineTo(x2-20, y+12);
+        ctx.lineTo(x1, y+12);
+        ctx.fill();
+        ctx.fillStyle = '#01579b'; 
+        ctx.font = 'bold 22px "Nunito", sans-serif';
+        ctx.textAlign = 'center';
+        let txt = type === 'expand' ? '擴分' : (type === 'reduce' ? '約分' : '最簡分數');
+        ctx.fillText(txt, (x1+x2)/2, y - 35);
+    }
+
+    function drawFractionFood(ctx, x, y, radius, num, den, foodType) {
+        const angle = (Math.PI * 2) / den;
+        for(let i=0; i<den; i++) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(i * angle - Math.PI/2);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, radius, 0, angle);
+            ctx.closePath();
+            if (i < num) {
+                ctx.clip();
+                ctx.globalAlpha = 1.0;
+                ctx.rotate(-(i * angle - Math.PI/2)); 
+                drawFoodTexture(ctx, foodType, radius);
+            } else {
+                ctx.clip();
+                ctx.globalAlpha = 0.25;
+                ctx.rotate(-(i * angle - Math.PI/2));
+                drawFoodTexture(ctx, foodType, radius);
+                ctx.globalAlpha = 1.0;
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.fill(); 
+            }
+            ctx.restore();
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(i * angle - Math.PI/2);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(radius, 0);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'; 
+            ctx.lineWidth = den > 12 ? 1 : 2; 
+            ctx.stroke();
+            ctx.restore();
+        }
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI*2);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)'; 
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    }
+
+    function drawFoodTexture(ctx, type, radius) {
+        ctx.save();
+        if (type === 'Pizza') {
+            let grad = ctx.createRadialGradient(0,0,0, 0,0,radius);
+            grad.addColorStop(0, '#ffe082'); grad.addColorStop(1, '#ffca28');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#e65100'; ctx.lineWidth = radius * 0.12;
+            ctx.beginPath(); ctx.arc(0, 0, radius - radius*0.06, 0, Math.PI*2); ctx.stroke();
+            ctx.fillStyle = '#d84315';
+            let peps = [ [0.3,0.3],[-0.4,0.2],[0.1,-0.5],[-0.3,-0.4],[0.5,-0.2],[0,-0.1] ];
+            peps.forEach(p => { ctx.beginPath(); ctx.arc(p[0]*radius, p[1]*radius, radius*0.16, 0, Math.PI*2); ctx.fill(); });
+        } else if (type === 'Strawberry Cake') {
+            ctx.fillStyle = '#ffcdd2';
+            ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#e53935';
+            for(let i=0; i<8; i++) {
+                let a = (Math.PI*2/8)*i;
+                let r = radius*0.65;
+                ctx.beginPath(); ctx.arc(Math.cos(a)*r, Math.sin(a)*r, radius*0.12, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(0, 0, radius*0.2, 0, Math.PI*2); ctx.fill();
+        } else if (type === 'Chocolate Cookie') {
+            let grad = ctx.createRadialGradient(0,0,0, 0,0,radius);
+            grad.addColorStop(0, '#a1887f'); grad.addColorStop(1, '#795548');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#3e2723';
+            let chips = [[0.2,0.5],[-0.3,0.4],[0.4,-0.3],[-0.5,-0.1],[0.1,-0.6], [0,-0.1],[-0.2,-0.4],[0.6,0.2],[-0.1,0.6] ];
+            chips.forEach(p => { ctx.beginPath(); ctx.arc(p[0]*radius, p[1]*radius, radius*0.09, 0, Math.PI*2); ctx.fill(); });
+        } else if (type === 'Apple Pie') {
+            ctx.fillStyle = '#ffcc80';
+            ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#ef6c00'; ctx.lineWidth = radius*0.06;
+            for(let i=-radius; i<radius; i+=radius*0.35) {
+                ctx.beginPath(); ctx.moveTo(i, -radius); ctx.lineTo(i, radius); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-radius, i); ctx.lineTo(radius, i); ctx.stroke();
+            }
+            ctx.strokeStyle = '#e65100'; ctx.lineWidth = radius * 0.1;
+            ctx.beginPath(); ctx.arc(0, 0, radius - radius*0.05, 0, Math.PI*2); ctx.stroke();
+        } else if (type === 'Lemon Pie') {
+            ctx.fillStyle = '#fff59d';
+            ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            for(let i=0; i<16; i++) {
+                let a = (Math.PI*2/16)*i;
+                ctx.beginPath(); ctx.arc(Math.cos(a)*radius*0.9, Math.sin(a)*radius*0.9, radius*0.15, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.fillStyle = '#fff9c4';
+            ctx.beginPath(); ctx.arc(0, 0, radius*0.4, 0, Math.PI*2); ctx.fill();
+        } else if (type === 'Waffle') {
+            ctx.fillStyle = '#fbc02d';
+            ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#f57f17'; ctx.lineWidth = radius*0.08;
+            for(let i=-radius; i<radius; i+=radius*0.25) {
+                ctx.beginPath(); ctx.moveTo(i, -radius); ctx.lineTo(i, radius); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-radius, i); ctx.lineTo(radius, i); ctx.stroke();
+            }
+        } else if (type === 'Seafood Pie') {
+            ctx.fillStyle = '#f5e0c3';
+            ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#ff8a65'; ctx.lineWidth = radius*0.08; ctx.lineCap = 'round';
+            let shrimps = [[0.3,0.3],[-0.4,0.2],[0.1,-0.5], [-0.3,-0.4],[0.4,-0.2] ];
+            shrimps.forEach(p => { ctx.beginPath(); ctx.arc(p[0]*radius, p[1]*radius, radius*0.15, 0, Math.PI*1.2); ctx.stroke(); });
+            ctx.fillStyle = '#81c784'; 
+            ctx.beginPath(); ctx.arc(0,0, radius*0.05, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(-radius*0.2,-radius*0.2, radius*0.04, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+    }
+</script>
+</body>
+</html>
